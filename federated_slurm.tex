@@ -36,12 +36,26 @@ Federated SLURM, HPC, unified computing
 
 
 \section{Introduction}
+\label{sec-introduction}
 \gls{slurm} provides the means to allocate exclusive and/or non-exclusive access to typically \gls{hpc} compute resources for a duration of time \cite{wiki-slurm}. Therefore, \gls{slurm} provides a scheduling framework for starting, executing, and monitoring compute jobs. These are typically parallel \gls{mpi} jobs on a set of scheduled compute nodes. \gls{slurm} also provides the intelligence to manage queues and thus congestion of the compute resources.
 
 \gls{slurm} 17.11 includes support for creating a federation of clusters, this feature enables users to schedule jobs on a range of clusters with a unified and unique job ID among all clusters \cite{slurm-federated-guide}. Each cluster then independently attempts to schedule the job according to its own scheduling policies. Furthermore, the cluster where the job was submitted to (origin cluster) coordinates with the other clusters in the federation to schedule the job. This is done by submitting copies of the job (sibling jobs) to each eligible cluster.
 
+SURFsara intends to integrate the Cartesius and Lisa systems on e.g. the job scheduling level. Federated \gls{slurm} could assist in this ambition. In order to experiment with federated \gls{slurm}, an experimental setup was used (Table \ref{tab-experimental-setup}). It is assumed that a true \gls{slurm} federation will not share a uniform setup. Thus, our experimental setup reflects this by using different versions of \gls{slurm} and Linux distributions.
+
+\begin{table}[H]
+\caption{Experimental setup}
+\label{tab-experimental-setup}
+\begin{tabular}{llll}
+\textbf{Cluster name} & \textbf{Linux distribution} & \textbf{SLURM} & \textbf{MariaDB} \\
+fedora                & Fedora 31                   & 19.05.4        & 10.3.20          \\
+debian                & Debian 10                   & 18.08.5        & 10.3.18          \\
+ubuntu                & Ubuntu 18.04.3 LTS          & 17.11.2        & 10.1.29         
+\end{tabular}
+\end{table}
 
 \section{Research questions}
+The following research questions are based on the use case as discussed in section \ref{sec-introduction}
 % SLURM requires a database for job accounting. Therefore, the question is; does every federated cluster account for its own job activity? Or is there a central database for all?
 
 % Different SLURM versions might require different database tables. Therefore, the questions is; how flexible can a federated cluster be with their SLURM versions?
@@ -86,9 +100,12 @@ Federated SLURM, HPC, unified computing
 % discuss what was done
 % discuss the findings
 
-\section{conclusion}
+
+\section{Conclusion}
 % evaluate the findings discussed in discussion with the known limitations
 % conclude the pros and cons
+% briefly discuss the prace unicore project and the leassons we can learn from that based on the findings of this rapport
+
 
 \section{Future work}
 % list the stuff that we intended to do, but didn't conclude due to time restrictions
