@@ -10,6 +10,8 @@
 \usepackage{footnote}
 \usepackage{multicol}
 \usepackage{float}
+\usepackage{minted}
+\usepackage{todonotes}
 \usepackage{url}[hyphens]
 \usepackage[acronym, nonumberlist]{glossaries}
 
@@ -39,11 +41,12 @@ Federated SLURM, HPC, unified computing
 \label{sec-introduction}
 \gls{slurm} provides the means to allocate exclusive and/or non-exclusive access to typically \gls{hpc} compute resources for a duration of time \cite{wiki-slurm}. Therefore, \gls{slurm} provides a scheduling framework for starting, executing, and monitoring compute jobs. These are typically parallel \gls{mpi} jobs on a set of scheduled compute nodes. \gls{slurm} also provides the intelligence to manage queues and thus congestion of the compute resources.
 
-\gls{slurm} 17.11 includes support for creating a federation of clusters, this feature enables users to schedule jobs on a range of clusters with a unified and unique job ID among all clusters \cite{slurm-federated-guide}. Each cluster then independently attempts to schedule the job according to its own scheduling policies. Furthermore, the cluster where the job was submitted to (origin cluster) coordinates with the other clusters in the federation to schedule the job. This is done by submitting copies of the job (sibling jobs) to each eligible cluster.
+Support for creating a federation of clusters was included with the release of \gls{slurm} 17.11. This feature enables users to schedule jobs on a range of clusters with a unified and unique job ID among all clusters \cite{slurm-federated-guide}. Each cluster then independently attempts to schedule the job according to its own scheduling policies. Furthermore, the cluster where the job was submitted to (origin cluster) coordinates with the other clusters in the federation to schedule the job. This is done by submitting copies of the job (sibling jobs) to each eligible cluster.
 
-SURFsara intends to integrate the Cartesius and Lisa systems on e.g. the job scheduling level. Federated \gls{slurm} could assist in this ambition. In order to experiment with federated \gls{slurm}, an experimental setup was used (Table \ref{tab-experimental-setup}). It is assumed that a true \gls{slurm} federation will not share a uniform setup. Thus, our experimental setup reflects this by using different versions of \gls{slurm} and Linux distributions.
+SURFsara intends to integrate the Cartesius and Lisa systems on e.g. the job scheduling level. Federated \gls{slurm} could assist in this ambition. In order to experiment with federated \gls{slurm}, an experimental setup was used (table \ref{tab-experimental-setup}). It is assumed that a true \gls{slurm} federation will not share a uniform setup. Thus, our experimental setup reflects this by using different versions of \gls{slurm} and Linux distributions.
 
 \begin{table}[H]
+\begin{center}
 \caption{Experimental setup}
 \label{tab-experimental-setup}
 \begin{tabular}{llll}
@@ -52,11 +55,42 @@ fedora                & Fedora 31                   & 19.05.4        & 10.3.20  
 debian                & Debian 10                   & 18.08.5        & 10.3.18          \\
 ubuntu                & Ubuntu 18.04.3 LTS          & 17.11.2        & 10.1.29         
 \end{tabular}
+\end{center}
 \end{table}
 
+
+\section{Known limitations}
+\label{sec-limitations}
+SchedMD (current maintainer of \gls{slurm}) highlighted the following known limitations of a federated cluster \cite{slurm-federated-guide}.
+
+\begin{itemize}
+    \item A federated job that fails due to resources (partition, node counts, etc.) on the local cluster will be rejected and will not be submitted to other sibling clusters even if it could run on them.
+    \item Job arrays only run on the cluster that they were submitted to.
+    \item Job dependencies are not supported across clusters.
+    \item Job modification must succeed on the origin cluster for the changes to be pushed to the sibling jobs on remote clusters.
+    \item Modifications to anything other than jobs are disabled in \mintinline{bash}{sview}.
+    \item \mintinline{bash}{sview} grid is disabled in a federated view.
+    \item Limited size of federation (64 clusters).
+    \item JodIDs are stored in 26 bits, not in 32, as in non-federated \gls{slurm}.
+    \item A cluster can be a part of only one federation at a time.
+    \item Jobs can't span multiple clusters.
+    \item A \gls{slurm} federation is not intended as a high-throughput environment (\textgreater 50,000 jobs a day). However, this can be mediated by using \mintinline{bash}{--cluster-constraint} or the \mintinline{bash}{-M} submission options to limit the amount of clusters the sibling jobs can be submitted to or directing load to.
+\end{itemize}
+
+The following federated \gls{slurm} options can be used when submitting a job \todo{the listing below could use some sources}.
+
+\begin{itemize}
+    \item Clusters can be assigned with a weight which can be used to influence job allocation.
+    \item The job can be submitted onto busiest cluster to reduce fragmentation.
+    \item The job can be submitted onto least loaded cluster (LLC flag).
+    \item The job can be submitted onto particular cluster using -M flag.
+\end{itemize}
+
+
 \section{Research questions}
-The following research questions are based on the use case as discussed in section \ref{sec-introduction}
-% SLURM requires a database for job accounting. Therefore, the question is; does every federated cluster account for its own job activity? Or is there a central database for all?
+This section briefly discusses the research questions based on the use case and experimental setup (section \ref{sec-introduction}), and the known limitations (section \ref{sec-limitations}).
+
+% \gls{slurm} requires a database for job accounting. Therefore, the question is; does every federated cluster account for its own job activity? Or is there a central database for all?
 
 % Different SLURM versions might require different database tables. Therefore, the questions is; how flexible can a federated cluster be with their SLURM versions?
 
@@ -70,30 +104,7 @@ The following research questions are based on the use case as discussed in secti
 
 
 
-\section{Known limitations of federated SLURM}
-% As any other system, SLURM has its own [limitations](https://slurm.schedmd.com/federation.html#limitations):
 
-% * A federated job that fails due to resources (partition, node counts, etc.) on the local cluster will be rejected and won’t be submitted to other sibling clusters even if it could run on them.
-% * Job arrays only run on the cluster that they were submitted to.
-% * Job dependencies are not supported across clusters.
-% * Job modification must succeed on the origin cluster for the changes to be pushed to the sibling jobs on remote clusters.
-% * Modifications to anything other than jobs are disabled in sview.
-% * sview grid is disabled in a federated view.
-% * Limited size of federation (64 clusters).
-% * JodIDs are stored in 26 bits, not in 32, as in non-federated SLURM.
-% * A cluster can be a part of only one federation at a time.
-% * Jobs can't span multiple clusters.
-
-% * NOTE: This is not intended as a high-throughput environment. If scheduling more than 50,000 jobs a day, consider configuring fewer clusters that the sibling jobs can be submitted to or directing load to the local cluster only (e.g. --cluster-constraint= or -M submission options could be used to do this).
-
-
-% ## Known options of federated SLURM
-% When submitting the job:
-
-% * Clusters can be assigned with weight. The cluster weight influence which cluster get used first.
-% * The job can be submitted onto busiest cluster to reduce fragmentation.
-% * The job can be submitted onto least loaded cluster (LLC flag).
-% * The job can be submitted onto particular cluster using -M flag.
 
 
 \section{Discussion}
