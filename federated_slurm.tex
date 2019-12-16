@@ -17,7 +17,7 @@
     T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
 \begin{document}
 
-\title{Utilizing a federated SLURM cluster}
+\title{Preliminary evaluation of federated SLURM}
 
 \author{\IEEEauthorblockN{Kees de Jong, Maxim Masterov}
 \IEEEauthorblockA{\textit{SURFsara} \\
@@ -27,23 +27,80 @@ kees.dejong@surfsara.nl, maxim.masterov@surfsara.nl}}
 \maketitle
 
 \begin{abstract}
-use case of slurm in general
-use case for slurm
-goal of this rapport
+\gls{cca} has as a goal to consolidate functionality on a common hardware infrastructure. The hypothesis is that this will create a more cost-effective system, easier management and more flexible access to \gls{hpc} and high performance storage resources. In practice this concept is planned for the integration of Cartesius \cite{cartesius-userinfo} and Lisa \cite{lisa-userinfo} hardware. This research investigated the pros and cons of a federated \gls{slurm} as a first step of a more unified integration of Cartesius and Lisa.
 \end{abstract}
 
 \begin{IEEEkeywords}
-Federated SLURM, supercomputing, unified computing
+Federated SLURM, HPC, unified computing
 \end{IEEEkeywords}
 
+
 \section{Introduction}
-summarize what has been said in related support tickets and documentation
+\gls{slurm} provides the means to allocate exclusive and/or non-exclusive access to typically \gls{hpc} compute resources for a duration of time \cite{wiki-slurm}. Therefore, \gls{slurm} provides a scheduling framework for starting, executing, and monitoring compute jobs. These are typically parallel \gls{mpi} jobs on a set of scheduled compute nodes. \gls{slurm} also provides the intelligence to manage queues and thus congestion of the compute resources.
+
+\gls{slurm} 17.11 includes support for creating a federation of clusters, this feature enables users to schedule jobs on a range of clusters with a unified and unique job ID among all clusters \cite{slurm-federated-guide}. Each cluster then independently attempts to schedule the job according to its own scheduling policies. Furthermore, the cluster where the job was submitted to (origin cluster) coordinates with the other clusters in the federation to schedule the job. This is done by submitting copies of the job (sibling jobs) to each eligible cluster.
+
+
+\section{Research questions}
+% SLURM requires a database for job accounting. Therefore, the question is; does every federated cluster account for its own job activity? Or is there a central database for all?
+
+% Different SLURM versions might require different database tables. Therefore, the questions is; how flexible can a federated cluster be with their SLURM versions?
+
+% What is the general need to have a federated cluster? A PRACE/DEISA federated load leveler project \cite{radecki2014reservations} was not successful due to a lack of need for such a solution [TODO: Citation needed].
+
+% When creating job scripts, some infrastructure specific variables are defined, i.e. mounted file systems, paths to certain software or data. With a federated cluster, people could launch jobs on different clusters, which could complicate the user experience.
+
+% How to control available resources and provide users with the optimal solution (via sbatch)? A federated cluster assumes (by default) that the running code is well developed and parallelized. In reality it is far from truth. Thus, some applications will demonstrate poor performance when executed on "non-friendly" hardware.
+
+% Based on these research questions a general research question emerges; how federated can a cluster really become? Or will it be needed to make these infrastructures uniform, which goes against the federation principle. If for example different clusters will have to adapt to a common and thus uniform design, then the concept of federation is lost.
+
+
+
+\section{Known limitations of federated SLURM}
+% As any other system, SLURM has its own [limitations](https://slurm.schedmd.com/federation.html#limitations):
+
+% * A federated job that fails due to resources (partition, node counts, etc.) on the local cluster will be rejected and won’t be submitted to other sibling clusters even if it could run on them.
+% * Job arrays only run on the cluster that they were submitted to.
+% * Job dependencies are not supported across clusters.
+% * Job modification must succeed on the origin cluster for the changes to be pushed to the sibling jobs on remote clusters.
+% * Modifications to anything other than jobs are disabled in sview.
+% * sview grid is disabled in a federated view.
+% * Limited size of federation (64 clusters).
+% * JodIDs are stored in 26 bits, not in 32, as in non-federated SLURM.
+% * A cluster can be a part of only one federation at a time.
+% * Jobs can't span multiple clusters.
+
+% * NOTE: This is not intended as a high-throughput environment. If scheduling more than 50,000 jobs a day, consider configuring fewer clusters that the sibling jobs can be submitted to or directing load to the local cluster only (e.g. --cluster-constraint= or -M submission options could be used to do this).
+
+
+% ## Known options of federated SLURM
+% When submitting the job:
+
+% * Clusters can be assigned with weight. The cluster weight influence which cluster get used first.
+% * The job can be submitted onto busiest cluster to reduce fragmentation.
+% * The job can be submitted onto least loaded cluster (LLC flag).
+% * The job can be submitted onto particular cluster using -M flag.
+
+
+\section{Discussion}
+% discuss what was done
+% discuss the findings
+
+\section{conclusion}
+% evaluate the findings discussed in discussion with the known limitations
+% conclude the pros and cons
+
+\section{Future work}
+% list the stuff that we intended to do, but didn't conclude due to time restrictions
 
 
 
 
 
-\newacronym{doa}{DOA}{Digital Object Architecture}
+\newacronym{slurm}{SLURM}{Simple Linux Utility for Resource Management}
+\newacronym{cca}{CCA}{Central Converged Architecture}
+\newacronym{hpc}{HPC}{High Performance Computing}
+\newacronym{mpi}{MPI}{Message Passing Interface}
 
 \bibliographystyle{./bibliography/IEEEtran}
 \bibliography{./bibliography/IEEEabrv,./bibliography/IEEEexample}
