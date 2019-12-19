@@ -23,13 +23,13 @@
 
 \author{\IEEEauthorblockN{Kees de Jong, Maxim Masterov}
 \IEEEauthorblockA{\textit{SURFsara} \\
-Amsterdam, the Netherlands \\
+Amsterdam, The Netherlands \\
 kees.dejong@surfsara.nl, maxim.masterov@surfsara.nl}}
 
 \maketitle
 
 \begin{abstract}
-\gls{cca} has as a goal to consolidate functionality on a common hardware infrastructure. The hypothesis is that this will create a more cost-effective system, easier management and more flexible access to \gls{hpc} and high performance storage resources. In practice this concept is planned for the integration of Cartesius \cite{cartesius-userinfo} and Lisa \cite{lisa-userinfo} hardware. This research investigated the pros and cons of a federated \gls{slurm} as a first step of a more unified integration of Cartesius and Lisa.
+\gls{cca} has as a goal to consolidate functionality on a common hardware infrastructure. The hypothesis is that this will create a more cost-effective system, easier management and more flexible access to \gls{hpc} and high performance storage resources. In practice this concept is planned for the integration of Cartesius \cite{cartesius-userinfo} and Lisa \cite{lisa-userinfo} hardware. This research investigated the advantages and disadvantages of a federated \gls{slurm} as a first step of a more unified integration of Cartesius and Lisa.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -38,11 +38,14 @@ Federated SLURM, HPC, unified computing
 
 
 \section{Introduction}
-\label{sec-introduction}
+\subsection{Background}
+\label{sec-background}
 \gls{slurm} provides the means to allocate exclusive and/or non-exclusive access to typically \gls{hpc} compute resources for a duration of time \cite{wiki-slurm}. Therefore, \gls{slurm} provides a scheduling framework for starting, executing, and monitoring compute jobs. These are typically parallel \gls{mpi} jobs on a set of scheduled compute nodes. \gls{slurm} also provides the intelligence to manage queues and thus congestion of the compute resources.
 
 Support for creating a federation of clusters was included with the release of \gls{slurm} 17.11. This feature enables users to schedule jobs on a range of clusters with a unified and unique job ID among all clusters \cite{slurm-federated-guide}. Each cluster then independently attempts to schedule the job according to its own scheduling policies. Furthermore, the cluster where the job was submitted to (origin cluster) coordinates with the other clusters in the federation to schedule the job. This is done by submitting copies of the job (sibling jobs) to each eligible cluster.
 
+
+\subsection{Experimental setup}
 SURFsara intends to integrate the Cartesius and Lisa systems on e.g. the job scheduling level. Federated \gls{slurm} could assist in this ambition. In order to experiment with federated \gls{slurm}, an experimental setup was used (table \ref{tab-experimental-setup}). It is assumed that a true \gls{slurm} federation will not share a uniform setup. Thus, our experimental setup reflects this by using different versions of \gls{slurm} and Linux distributions.
 
 \begin{table}[H]
@@ -59,7 +62,7 @@ ubuntu                & Ubuntu 18.04.3 LTS          & 17.11.2        & 10.1.29
 \end{table}
 
 
-\section{Known limitations}
+\subsection{Known limitations}
 \label{sec-limitations}
 SchedMD (current maintainer of \gls{slurm}) highlighted the following known limitations of a federated cluster \cite{slurm-federated-guide}.
 
@@ -77,6 +80,24 @@ SchedMD (current maintainer of \gls{slurm}) highlighted the following known limi
     \item A \gls{slurm} federation is not intended as a high-throughput environment (\textgreater 50,000 jobs a day). However, this can be mediated by using \mintinline{bash}{--cluster-constraint} or the \mintinline{bash}{-M} submission options to limit the amount of clusters the sibling jobs can be submitted to or directing load to.
 \end{itemize}
 
+
+\subsection{Research question}
+This section briefly discusses the research questions based on the use case and experimental setup (section \ref{sec-background}), and the known limitations (section \ref{sec-limitations}). The term federated \gls{slurm} implies central control over independent clusters. The main research question therefore is; how federated can federated \gls{slurm} actually be and what are the advantages and disadvantages? Furthermore, how applicable is federated \gls{slurm} for the Cartesius and Lisa systems?
+
+
+\section{Results}
+\subsection{Cluster setup}
+When using \gls{slurm}, a central database may used to archive job accounting. The daemon used for this is called \mintinline{bash}{slurmdbd}. The \gls{slurm} controller (\mintinline{bash}{slurmctld}) is responsible for monitoring all the \gls{slurm} daemons and resources, accepts work (jobs), and allocates resources to those jobs \cite{slurm-slurmctld}. The \mintinline{bash}{slurmctld} communicates this information to the \mintinline{bash}{slurmdbd} to be registered to a supported database, i.e. MariaDB \cite{mariadb}. The \mintinline{bash}{slurmdbd} must be at the same or higher major release number as the \mintinline{bash}{slurmctld} daemon \cite{slurm-upgrade-guide}. Therefore, the only valid candidate to be the \mintinline{bash}{slurmdbd} in our experimental setup (table \ref{tab-experimental-setup}) is the Fedora 31 system, due to having the highest \gls{slurm} release number.
+
+Furthermore, \gls{slurm} permits upgrades to a new major release from the past two major releases without loss of jobs or other state information, which happen every nine months. State information and RPCs from older versions will not be recognized and will be discarded, resulting in loss of all running and pending jobs. Therefore, the \mintinline{bash}{slurmdbd} version number can only go up. When other \gls{slurm} clusters run a lower release number of the \mintinline{bash}{slurmdbd}, then this results in compatibility problems when this \gls{slurm} cluster decides to leave the federation. Therefore, the best compatibility is ensured by having the \gls{slurm} daemons in all clusters (regardless of which Linux distribution is used), running the same major version release number.
+
+There must a uniform user (UID) and group (GID) name space accros a \gls{slurm} cluster. This requirement is twofold; to ensure storage permission compatibility throughout the distributed cluster (and network attached file systems) and to ensure that the \mintinline{bash}{SlurmUser} option in \mintinline{bash}{slurm.conf} is resolved to the same user. Therefore, all federated \gls{slurm} clusters must use a common user administration database, such as LDAP.
+
+In order to authenticate the UID and GID of another local or remote process (RPC), an authentication mechanism is used called \mintinline{bash}{munge} \cite{github-munge}. The key used for authentication must be distributed throughout the \gls{slurm} cluster. However, it is possible to run multiple \mintinline{bash}{munge} keys by running multiple daemon instances pointing to different keys. Another authentication requirement is time (to prevent replay attacks), thus clocks need to be synchronized throughout the \gls{slurm} cluster, this is usually done by NTP.
+
+
+
+
 The following federated \gls{slurm} options can be used when submitting a job \todo{the listing below could use some sources}.
 
 \begin{itemize}
@@ -86,9 +107,7 @@ The following federated \gls{slurm} options can be used when submitting a job \t
     \item The job can be submitted onto particular cluster using -M flag.
 \end{itemize}
 
-
-\section{Research questions}
-This section briefly discusses the research questions based on the use case and experimental setup (section \ref{sec-introduction}), and the known limitations (section \ref{sec-limitations}).
+% coherent jobs? mpi versions, lib versions
 
 % \gls{slurm} requires a database for job accounting. Therefore, the question is; does every federated cluster account for its own job activity? Or is there a central database for all?
 
@@ -129,6 +148,7 @@ This section briefly discusses the research questions based on the use case and 
 \newacronym{cca}{CCA}{Central Converged Architecture}
 \newacronym{hpc}{HPC}{High Performance Computing}
 \newacronym{mpi}{MPI}{Message Passing Interface}
+
 
 \bibliographystyle{./bibliography/IEEEtran}
 \bibliography{./bibliography/IEEEabrv,./bibliography/IEEEexample}
