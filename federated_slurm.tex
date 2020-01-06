@@ -29,7 +29,7 @@ kees.dejong@surfsara.nl, maxim.masterov@surfsara.nl}}
 \maketitle
 
 \begin{abstract}
-\gls{cca} has as a goal to consolidate functionality on a common hardware infrastructure. The hypothesis is that this will create a more cost-effective system, easier management and more flexible access to \gls{hpc} and high performance storage resources. In practice this concept is planned for the integration of Cartesius \cite{cartesius-userinfo} and Lisa \cite{lisa-userinfo} hardware. This research investigated the advantages and disadvantages of a federated \gls{slurm} as a first step of a more unified integration of Cartesius and Lisa.
+\gls{cca} has as a goal to consolidate functionality on a common hardware infrastructure. The hypothesis is that this will create a more cost-effective system, easier management and more flexible access to \gls{hpc} and high performance storage resources. In practice this concept is planned for the integration of Cartesius \cite{cartesius-userinfo} and Lisa \cite{lisa-userinfo} hardware. This research investigated the advantages and disadvantages of a federated \gls{slurm} as a first step of a more unified integration between Cartesius and Lisa.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -40,7 +40,7 @@ Federated SLURM, HPC, unified computing
 \section{Introduction}
 \subsection{Background}
 \label{sec-background}
-\gls{slurm} provides the means to allocate exclusive and/or non-exclusive access to typically \gls{hpc} compute resources for a duration of time \cite{wiki-slurm}. Therefore, \gls{slurm} provides a scheduling framework for starting, executing, and monitoring compute jobs. These are typically parallel \gls{mpi} jobs on a set of scheduled compute nodes. \gls{slurm} also provides the intelligence to manage queues and thus congestion of the compute resources.
+\gls{slurm} provides the means to allocate exclusive and/or non-exclusive access to typically \gls{hpc} compute resources for a duration of time \cite{wiki-slurm}. Therefore, \gls{slurm} provides a scheduling framework for starting, executing, and monitoring compute jobs. These are typically parallel \gls{mpi} jobs on a set of scheduled compute nodes, or parallel OpenMP jobs on a single scheduled compute node. \gls{slurm} also provides the intelligence to manage queues and thus congestion of the compute resources.
 
 Support for creating a federation of clusters was included with the release of \gls{slurm} 17.11. This feature enables users to schedule jobs on a range of \gls{slurm} clusters with a unified and unique job ID \cite{slurm-federated-guide}. Each cluster then independently attempts to schedule the job according to its own scheduling policies. Furthermore, the cluster where the job was submitted to (origin cluster) coordinates with the other clusters in the federation to schedule the job. This is done by submitting copies of the compute job (sibling jobs) to each eligible cluster.
 
@@ -52,15 +52,25 @@ SURFsara intends to integrate the Cartesius and Lisa systems on e.g. the job sch
 \begin{center}
 \caption{Experimental setup}
 \label{tab-experimental-setup}
-\begin{tabular}{llll}
-\textbf{Cluster name} & \textbf{Linux distribution} & \textbf{SLURM} & \textbf{MariaDB} \\
-fedora                & Fedora 31                   & 19.05.4        & 10.3.20          \\
-debian                & Debian 10                   & 18.08.5        & 10.3.18          \\
-ubuntu                & Ubuntu 18.04.3 LTS          & 17.11.2        & 10.1.29         
+\begin{tabular}{lll}
+\textbf{Cluster name} & \textbf{Linux distribution} & \textbf{SLURM} \\
+fedora                & Fedora 31                   & 19.05.4        \\
+debian                & Debian 10                   & 18.08.5        \\
+ubuntu                & Ubuntu 18.04.3 LTS          & 17.11.2         
 \end{tabular}
 \end{center}
 \end{table}
 
+\subsection{Known advantages}
+The main advantages of a federated cluster are as follows:
+\begin{itemize}
+    \item Federation of clusters allows to synchronize resources across multiple clusters.
+    \item Based on the requirements of a particular software users can be provided with the best system for their needs (InfiniBand, GPU, NUMA, etc.).
+    \item Users can manage the deployment of their software to different platforms and, therefore, develop more versatile codes.
+    \item The federation may provide better load balancing across the clusters with heterogeneous resources and architectures.
+    \item (Theoretically) It is easy to add a new cluster to the federation and, therefore, provide users with even more resources.
+    \item Because a federation consists of several small clusters (rather than one massive cluster), it is easier to perform fault isolation and maintenance in case of a hardware failure.
+\end{itemize}
 
 \subsection{Known limitations}
 \label{sec-limitations}
@@ -69,24 +79,28 @@ SchedMD (current maintainer of \gls{slurm}) highlighted the following known limi
 \begin{itemize}
     \item A federated job that fails due to resources (partition, node counts, etc.) on the local cluster will be rejected and will not be submitted to other sibling clusters even if it could run on them.
     \item Job arrays only run on the cluster that they were submitted to.
-    \item Job dependencies are not supported across clusters.
     \item Job modification must succeed on the origin cluster for the changes to be pushed to the sibling jobs on remote clusters.
     \item Modifications to anything other than jobs are disabled in \mintinline{bash}{sview}.
     \item \mintinline{bash}{sview} grid is disabled in a federated view.
     \item Limited size of federation (64 clusters).
-    \item Job IDs are stored in 26 bits, not in 32, as in non-federated \gls{slurm}.
+    \item Federated job IDs are stored in 26 bits, not in 32, as in non-federated \gls{slurm}.
     \item A cluster can be a part of only one federation at a time.
     \item Jobs cannot span multiple clusters.
     \item A \gls{slurm} federation is not intended as a high-throughput environment (\textgreater 50,000 jobs a day). However, this can be mediated by using \mintinline{bash}{--cluster-constraint} or the \mintinline{bash}{-M} submission options to limit the amount of clusters the sibling jobs can be submitted to or directing load to.
-    \item Job IDs on each cluster are independent (two jobs can have the same ID).
+    \item The load manager will have to maintain real-time communication with multiple clusters in order to determine their state and availability. Intensified data transfer between the main cluster and siblings may lead to the network congestion (taking into account slow interconnections between siblings). This may affect the data transfer and "availability" status of siblings.
+    \item Job IDs on each cluster are independent (two jobs can have the same local ID).
     \item No cross-cluster job dependencies.
     \item No job migration between clusters.
     \item No unified view of system state, each cluster is largely independent.
+    \item In case of a large \gls{slurm} federation, spread across several owners (e.g. SURF and UvA), the software management becomes complicated.
+\end{itemize}
+
+\subsection{Known features}
+\begin{itemize}
     \item \mintinline{bash}{sacctmgr mod cluster} can be used to set a weight on a cluster level, used to prioritize clusters that can start a job the soonest.
     \item \mintinline{bash}{sacctmgr mod cluster} can also be used to set features on a cluster level, which can be requested by job.
     \item \mintinline{bash}{sbatch}, \mintinline{bash}{salloc} and \mintinline{bash}{srun} have federation support to submit jobs.
 \end{itemize}
-
 
 \subsection{Research question}
 This section briefly discusses the research questions based on the use case and experimental setup (section \ref{sec-background}), and the known limitations (section \ref{sec-limitations}).
@@ -99,20 +113,20 @@ The term federated \gls{slurm} implies central control over independent clusters
 \label{sec-cluster-setup}
 When using \gls{slurm}, a central database may be used to archive job accounting. The daemon used for this is called \mintinline{bash}{slurmdbd}. The \gls{slurm} controller (\mintinline{bash}{slurmctld}) is responsible for monitoring all the \gls{slurm} daemons and resources, accepts work (jobs), and allocates resources to those jobs \cite{slurm-slurmctld}. The \mintinline{bash}{slurmctld} communicates this information to the \mintinline{bash}{slurmdbd} to be archived to a supported database, i.e. MariaDB \cite{mariadb}.
 
-The \gls{slurm} release numbers can be distinguished in two parts, the major release number and the maintenance level. Taking the \gls{slurm} 17.11.2 release number as an example, the first two numbers represent the major release number, while the last of the three represent the maintenance level. The \mintinline{bash}{slurmdbd} must be at the same or higher major release number as the \mintinline{bash}{slurmctld} daemon \cite{slurm-upgrade-guide}. Therefore, the only valid candidate to run the \mintinline{bash}{slurmdbd} in our experimental setup (table \ref{tab-experimental-setup}) is the \mintinline{bash}{fedora} cluster, due to having the highest major \gls{slurm} release number.
+The \gls{slurm} release numbers can be distinguished in two parts, the major release number and the maintenance level. Taking the \gls{slurm} 17.11.2 release number as an example, the first two numbers represents the major release number, while the last of the three represent the maintenance level. The \mintinline{bash}{slurmdbd} must be at the same or higher major release number as the \mintinline{bash}{slurmctld} daemon \cite{slurm-upgrade-guide}. Therefore, the only valid candidate to run the \mintinline{bash}{slurmdbd} in our experimental setup (table \ref{tab-experimental-setup}) is the \mintinline{bash}{fedora} cluster, due to having the highest major \gls{slurm} release number.
 
-Furthermore, \gls{slurm} permits upgrades to a new major release from the past two major releases without the loss of jobs, or other state information. Thus, as also explicitly noted in the official documentation \cite{slurm-upgrade-guide}, the \gls{slurm} versions listed in table \ref{tab-experimental-setup} are compatible. If an older major release ought to be used, then state information and RPCs would not be recognized and discarded, resulting in loss of all running and pending jobs. Therefore, the \mintinline{bash}{slurmdbd} version number can only go up, and in our case a \gls{slurm} version \textless 17.11 would not be compatible (even if those major releases would support federated \gls{slurm}).
+Furthermore, \gls{slurm} permits upgrades to a new major release from the past two major releases without the loss of jobs, or other state information. Thus, as also explicitly noted in the official documentation \cite{slurm-upgrade-guide}, the \gls{slurm} versions in respect to using the same major release version of \mintinline{bash}{slurmdbd}, listed in table \ref{tab-experimental-setup} are compatible. If an older major release ought to be used, then state information and RPCs would not be recognized and discarded, resulting in loss of all running and pending jobs. Therefore, the \mintinline{bash}{slurmdbd} version number can only go up, and in our case a \gls{slurm} version \textless 17.11 would not be compatible (even if those major releases would support federated \gls{slurm}).
 
 If a \gls{slurm} cluster with the highest major release of the \mintinline{bash}{slurmdbd} decides to leave the federation, another cluster has to step in to replace it with a \mintinline{bash}{slurmdbd} major release version that is equal or higher. Otherwise, database scheme compatibility problems would arise, a \gls{slurm} downgrade path is not supported. Therefore, the best forward-compatibility is ensured by having the \gls{slurm} daemons in all clusters (regardless of which Linux distribution is used), run the same major version release number. However, we experimented with the versions listed in table \ref{tab-experimental-setup} since the documentation states that these \gls{slurm} versions are compatible.
 
-Across a (federated) \gls{slurm} cluster a uniform user (UID) and group (GID) name space must be assured. This requirement is twofold; to ensure storage permission compatibility throughout the distributed cluster (and network attached file systems), and to ensure that the \mintinline{bash}{SlurmUser} option in \mintinline{bash}{slurm.conf} is mapped to the same numerical UID/GID. Furthermore, accounting is maintained by user name (not UID), however, this also requires uniform user administration across the federated \gls{slurm} cluster \cite{slurm-accounting}. Therefore, all federated \gls{slurm} clusters must use a uniform user administration, e.g. LDAP.
+Across a (federated) \gls{slurm} cluster a uniform user (UID) and group (GID) name space must be implemented. This requirement is twofold; to ensure storage permission compatibility throughout the distributed cluster (and network attached file systems), and to ensure that the \mintinline{bash}{SlurmUser} option in \mintinline{bash}{slurm.conf} is mapped to the same numerical UID/GID. Furthermore, accounting is maintained by user name (not UID), however, this also requires uniform user administration across the federated \gls{slurm} cluster \cite{slurm-accounting}. Therefore, all federated \gls{slurm} clusters must use a uniform user administration, e.g. LDAP.
 
-In order to authenticate the UID and GID of another local or remote process (RPC), an authentication mechanism is used called \mintinline{bash}{munge} \cite{github-munge}. The symmetric key used for authentication must be distributed throughout the federated \gls{slurm} cluster. However, it is possible to run multiple \mintinline{bash}{munge} keys by running multiple daemon instances pointing to different keys. Another authentication requirement is time (to prevent replay attacks), thus clocks need to be synchronized throughout the federated \gls{slurm} cluster, this is usually done by NTP.
+In order to authenticate the UID and GID of another local or remote process (RPC), an authentication mechanism is used called \mintinline{bash}{munge} \cite{github-munge}. The symmetric key used for authentication must be distributed throughout the federated \gls{slurm} cluster. However, it is possible to run multiple \mintinline{bash}{munge} keys by running multiple daemon instances, pointing to different keys. Another authentication requirement is time (to prevent replay attacks), thus clocks need to be synchronized throughout the federated \gls{slurm} cluster, this is usually done by NTP.
 
 
 \subsection{Experimentation}
 \label{sec-experimentation}
-As discussed in section \ref{sec-cluster-setup}, RPC and state information should be compatible between the \gls{slurm} versions listed in table \ref{tab-experimental-setup}, where the \mintinline{bash}{fedora} cluster acts as the main cluster in the \gls{slurm} federation. However, several errors were observed when the \gls{slurm} federation was created. Before setting up the federated \gls{slurm} cluster, all cluster local jobs completed without issues. However, several errors were introduced after creating the \gls{slurm} federation.
+As discussed in section \ref{sec-cluster-setup}, RPC and state information should be compatible between the \gls{slurm} versions listed in table \ref{tab-experimental-setup}, where the \mintinline{bash}{fedora} cluster acts as the main cluster in the \gls{slurm} federation. However, several errors were observed when the \gls{slurm} federation was created. Before establishing the federated \gls{slurm} cluster, all cluster local jobs completed without issues. However, several errors were introduced after creating the \gls{slurm} federation.
 
 On the \mintinline{bash}{debian} cluster we ran the command \mintinline{bash}{sinfo --federation}, which triggered the \mintinline{bash}{Zero Bytes were transmitted or received} error before showing the expected federated \gls{slurm} cluster overview. However, the output of the command was incorrect. According to the output, the \mintinline{bash}{fedora} and \mintinline{bash}{debian} clusters were running on the same node, while the \mintinline{bash}{ubuntu} cluster was missing from the overview. Similar errors, but with different combinations were observed on other nodes in the federated \gls{slurm} cluster. All \mintinline{bash}{munge} keys were verified with SHA256 and all clocks were synchronized with NTP. The \mintinline{bash}{slurmdbd} log on the main cluster registered the error \mintinline{bash}{federation siblings not synced yet}. Network connections, \gls{slurm} daemon and database permissions were verified. However, the errors persisted.
 
@@ -126,9 +140,9 @@ In this research we experimented with the \gls{slurm} federation feature in orde
 
 Therefore, all clusters within a \gls{slurm} federation must use the same \gls{slurm} major release version for optimal compatibility. The federated nature is mostly defined by having an independent \mintinline{bash}{slurmctld} which allows each \gls{slurm} federation cluster to have control over how jobs are scheduled. However, for ease and consistency it would benefit user friendliness if the \gls{slurm} federation members have a uniform job environment. This includes e.g. mount points and paths to software or data and the name space in the module environment. With this consistency it would be possible to utilize a technique called cloud bursting \cite{slurm-cloud-bursting}. When job scripts are compatible without alteration on other \gls{slurm} federation clusters, the cloud bursting technique can be used to offload automatically to other, less congested \gls{slurm} federation cluster members.
 
-This uniform requirement somewhat complicates administration for Cartesius and Lisa. Cartesius depends on \gls{slurm} support from Atos \cite{atos-website} while Lisa is independent and compiles and maintains their own \gls{slurm} software. At the moment Cartesius uses \gls{slurm} 16.05, which lacks support for a \gls{slurm} federation. Lisa on the other hand runs the latest major release version \gls{slurm} 19.05. Furthermore, a uniform user administration is already in place for Cartesius and Lisa by the use of \gls{cola}. However, this does not include the UIDs/GIDs for system users such as \mintinline{bash}{slurm} and \mintinline{bash}{munge}. This can be handled by the respected configuration management tools in use by Cartesius and Lisa. Furthermore, job environments are not uniform, even though this is not a requirement, it would make the \gls{slurm} federation more user friendly.
+This uniform requirement somewhat complicates administration for Cartesius and Lisa. Cartesius depends on \gls{slurm} support from Atos \cite{atos-website} while Lisa is independent and compiles and maintains their own \gls{slurm} software. At the moment Cartesius uses \gls{slurm} 16.05, which lacks support for a \gls{slurm} federation. Lisa on the other hand runs the latest major release version \gls{slurm} 19.05. Furthermore, a uniform user administration and accounting is already in place for Cartesius and Lisa by the use of LDAP and \gls{cola}. However, this does not include the UIDs/GIDs for system users such as \mintinline{bash}{slurm} and \mintinline{bash}{munge}. This can be handled by the respected configuration management tools in use by Cartesius and Lisa. Furthermore, job environments are not uniform, even though this is not a requirement, it would make the \gls{slurm} federation more user friendly.
 
-As discussed in section \ref{sec-limitations}, a \gls{slurm} federation can span over multiple independent clusters. But each \gls{slurm} cluster can only be a member of one federation. Therefore, careful planning is needed in establishing a \gls{slurm} federation, where consensus is needed to create a consistent and reliable environment. Furthermore, job load needs to be taken into account. However, as discussed in section \ref{sec-limitations}, with some mediations it is possible to make a \gls{slurm} federation workable for a high-throughput environment with \textgreater 50,000 jobs a day. Furthermore, Amazon, Google or Microsoft \gls{hpc} clouds can also be considered for cloud bursting.
+As discussed in section \ref{sec-limitations}, a \gls{slurm} federation can span over multiple independent clusters. But each \gls{slurm} cluster can only be a member of one federation. Therefore, careful planning is needed in establishing a \gls{slurm} federation, where consensus is needed to create a consistent and reliable environment. Furthermore, job load needs to be taken into account. However, as discussed in section \ref{sec-limitations}, with some mediations it is possible to make a \gls{slurm} federation workable for a high-throughput environment with \textgreater 50,000 jobs a day. Furthermore, Amazon, Google or Microsoft \gls{hpc} clouds can also be considered for cloud bursting by the use of a \gls{slurm} federation.
 
 
 \newacronym{slurm}{SLURM}{Simple Linux Utility for Resource Management}
@@ -136,7 +150,6 @@ As discussed in section \ref{sec-limitations}, a \gls{slurm} federation can span
 \newacronym{hpc}{HPC}{High Performance Computing}
 \newacronym{mpi}{MPI}{Message Passing Interface}
 \newacronym{cola}{COLA}{Customer Organisation LDAP Accounting Service}
-\newacronym{prace}{PRACE}{Partnership for Advanced Computing in Europe}
 
 
 \bibliographystyle{./bibliography/IEEEtran}
